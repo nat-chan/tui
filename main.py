@@ -37,17 +37,17 @@ class MyArena(Arena.Arena):
             self.display(board, valids)
             print("Turn ", str(it), "Player ", str(curPlayer))
 
-            action = players[curPlayer+1](self.game.getCanonicalForm(board, curPlayer))
+            if not(len(resume) > 0 and 'Human' in str(players[curPlayer+1])):
+                action = players[curPlayer+1](self.game.getCanonicalForm(board, curPlayer))
 
+            if len(resume) > 0:
+                action = resume.pop(0)
 
             if valids[action]==0:
                 print(action)
                 assert valids[action] >0
 
-            if len(resume) > 0:
-                action = resume.pop(0)
             sys.stderr.write(str(action)+',')
-
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
 
         return self.game.getGameEnded(board, 1)
@@ -133,7 +133,7 @@ def main():
 #        n2p = lambda x: np.argmax(mcts2.getActionProb(x, temp=0))
 
         arena = MyArena(n1p, mhp, g, display=mydisplay)
-        result = arena.playGame(verbose=True, resume=[])
+        result = arena.playGame(verbose=True, resume=[19,34,41,20,37,18,9,43,13,29,51])
     finally:
         last()
         print(result)

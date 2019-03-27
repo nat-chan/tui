@@ -24,7 +24,7 @@ def last():
 
 
 class MyArena(Arena.Arena):
-    def playGame(self, verbose=False):
+    def playGame(self, verbose=False, resume=[]):
         players = [self.player2, None, self.player1]
         curPlayer = 1
         board = self.game.getInitBoard()
@@ -32,7 +32,7 @@ class MyArena(Arena.Arena):
         while self.game.getGameEnded(board, curPlayer)==0:
             it+=1
 
-            print("Turn ", str(it), "Player ", str(curPlayer))
+#            print("Turn ", str(it), "Player ", str(curPlayer))
             self.display(board)
 
             action = players[curPlayer+1](self.game.getCanonicalForm(board, curPlayer))
@@ -42,17 +42,44 @@ class MyArena(Arena.Arena):
             if valids[action]==0:
                 print(action)
                 assert valids[action] >0
+
+            if len(resume) > 0:
+                action = resume.pop(0)
+            sys.stderr.write(str(action)+',')
+
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
 
-        print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
+#        print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
         self.display(board)
 
         return self.game.getGameEnded(board, 1)
 
+class MyHumanOthelloPlayer(HumanOthelloPlayer):
+    def play(self, board):
+        valid = self.game.getValidMoves(board, 1)
+#        for i in range(len(valid)):
+#            if valid[i]:
+#                print(int(i/self.game.n), int(i%self.game.n))
+        t = b''
+        while True:
+            t += sys.stdin.buffer.read(1)
+            if t[-1] == 3: break
+            if t[-6:-3] == b"\033[M":
+                if t[-3] == 32:
+                    i = t[-1]-32
+                    j = t[-2]-32
+                    ii = (i-1)//3
+                    jj = (j-1)//5
+                    print("\033[{0};{1}H{2},{3}".format(i,j,ii,jj))
+                    action = self.game.n * ii + jj
+                    if 0 <= action < len(valid) and valid[action]:
+                        break
+        return action
+
 def mydisplay(board: np.ndarray):
     n = board.shape[0]
     tmp = '\033[H\033[30;42m'
-    tmp += '\r\n┼' + '────┼' * n + '\r\n'
+    tmp += '┼' + '────┼' * n + '\r\n'
     for i in range(n):
         tmp += '│'
         for j in range(n):
@@ -83,6 +110,7 @@ def main():
         rp = RandomPlayer(g).play
         gp = GreedyOthelloPlayer(g).play
         hp = HumanOthelloPlayer(g).play
+        mhp = MyHumanOthelloPlayer(g).play
 
 # nnet players
         n1 = NNet(g)
@@ -93,13 +121,13 @@ def main():
 
 # nnet players
         n2 = NNet(g)
-        n2.load_checkpoint('../alpha-zero-general-ch/temp', 'checkpoint_104.pth.tar')
+        n2.load_checkpoint('../alpha-zero-general-ch/temp1', 'checkpoint_257.pth.tar')
         args2 = dotdict({'numMCTSSims': 50, 'cpuct': 1.0})
         mcts2 = MCTS(g, n2, args2)
         n2p = lambda x: np.argmax(mcts2.getActionProb(x, temp=0))
 
-        arena = MyArena(gp, n1p, g, display=mydisplay)
-        result = arena.playGame(verbose=True)
+        arena = MyArena(n1p, mhp, g, display=mydisplay)
+        result = arena.playGame(verbose=True, resume=[])
     finally:
         last()
         print(result)
